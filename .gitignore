@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 本地配置（不要提交）
+.claude/
+.vscode/
+.idea/
+
+# 密钥与敏感文件（严禁提交）
+.env
+*.env
+.env.*
+*.key
+*.pem
+
+# 系统文件
+.DS_Store
+Thumbs.db
