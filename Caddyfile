@@ -1,0 +1,6 @@
+# 反向代理（自动 HTTPS）。部署时把 your-domain.com 换成真实域名。
+# 使用：docker run -d -p 80:80 -p 443:443 -v $PWD/Caddyfile:/etc/caddy/Caddyfile caddy
+
+your-domain.com {
+    reverse_proxy app:8000
+}

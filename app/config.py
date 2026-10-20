@@ -17,6 +17,14 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen2.5-7b-instruct")
 
+# ===== 持久化 / 语音 / 鉴权（上线配置）=====
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))          # app/
+_PROJECT_DIR = os.path.dirname(_APP_DIR)                        # 项目根
+DB_PATH = os.getenv("DB_PATH", "")            # 空 = 纯内存模式（历史行为）
+TTS_BACKEND = os.getenv("TTS_BACKEND", "mock")  # mock = 占位路径；edge = 真实合成
+AUDIO_DIR = os.getenv("AUDIO_DIR", os.path.join(_PROJECT_DIR, "static", "audio"))
+API_TOKEN = os.getenv("API_TOKEN", "")        # 空 = 关闭鉴权（本地/测试）
+
 # ===== 全局取值域（分工前置 §5）=====
 MBTI_TYPES = [
     "ISTJ", "ISFJ", "INFJ", "INTJ",

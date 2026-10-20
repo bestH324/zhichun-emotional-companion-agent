@@ -13,8 +13,17 @@ __pycache__/
 .env
 *.env
 .env.*
+!.env.example
 *.key
 *.pem
+
+# 运行时数据（不要提交）
+data/
+*.db
+*.log
+
+# 训练数据集（体积大，单独管理）
+datasets/
 
 # 系统文件
 .DS_Store

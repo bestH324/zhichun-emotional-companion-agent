@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DB_PATH: /app/data/agent.db
+      LLM_BACKEND: ${LLM_BACKEND:-mock}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-qwen2.5-7b-instruct}
+      TTS_BACKEND: ${TTS_BACKEND:-mock}
+      AUDIO_DIR: /app/static/audio
+      API_TOKEN: ${API_TOKEN:-}
+    volumes:
+      - ./data:/app/data
+      - ./static/audio:/app/static/audio
+    restart: unless-stopped

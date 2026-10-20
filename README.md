@@ -1,17 +1,33 @@
-# 芝春情感陪伴数字人 · 初赛 Demo
+# 芝春情感陪伴数字人
 
-多智能体情感陪伴 Demo，跑通
-「用户输入 → 情感识别 → MBTI 路由 → 记忆检索 → 回复生成 → 情绪驱动(TTS/渲染 Mock)」完整链路。
+多智能体情感陪伴系统，跑通
+「用户输入 → 情感识别 → MBTI 路由 → 记忆检索 → 回复生成 → 情绪驱动(TTS/渲染)」完整链路。
 
-> 零外部大模型 / 零 embedding / 零真实 TTS 依赖，`pip install` 即可跑通。
+> 支持 SQLite 会话持久化、Edge-TTS 真实语音、API 鉴权，可 Docker 部署上线。
 > 详细设计见《初赛行动规划书.md》与《分工前置.md》。
 
 ## 技术栈
 
+**运行时**
 - Python 3.10+
 - FastAPI + Uvicorn
 - Pydantic v2
+- SQLite（会话/记忆持久化）
+
+**LLM 与语音**
+- 自研 `LLMClient` 抽象层（`app/llm/`），默认 Mock，可切换 Qwen 等真实后端
+- edge-tts（免费真实语音，失败回退 Mock）
+
+**安全**
+- HTTPBearer token 鉴权（`app/auth.py`）
+- 风险词前置风控（`app/modules/safety.py`）
+
+**前端**
+- 原生 HTML/CSS/JS（`static/`，无框架无构建）
+
+**测试与部署**
 - pytest
+- Docker + docker-compose + Caddy（自动 HTTPS）
 
 ## 快速开始
 
@@ -19,11 +35,14 @@
 # 1. 安装依赖
 pip install -r requirements.txt
 
-# 2. 启动服务
-uvicorn app.main:app --reload
+# 2. 启动服务（本地开发：内存模式 + mock 语音）
+DB_PATH= TTS_BACKEND=mock uvicorn app.main:app --reload
 
 # 3. 健康检查
 curl http://127.0.0.1:8000/health
+
+# 4. 浏览器打开聊天界面
+#    http://127.0.0.1:8000/
 ```
 
 ## API 端点
@@ -122,3 +141,48 @@ export LLM_MODEL_NAME=qwen2.5-7b-instruct
 | `EPISODIC_TOP_K` | 3 | 情景召回条数 |
 | `TTL_SECONDS` | 1800 | 会话不活跃清理 |
 | `MAX_INPUT_LENGTH` | 2000 | 输入最大字数 |
+
+## 上线部署
+
+本项目已支持：网页前端（`static/`）、SQLite 会话持久化、Edge-TTS 真实语音、API token 鉴权。
+
+### 环境变量
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `DB_PATH` | 空 | 空 = 纯内存模式；填路径 = SQLite 持久化（跨重启保留记忆） |
+| `TTS_BACKEND` | `mock` | `mock` = 占位音频；`edge` = Edge-TTS 真实合成 |
+| `AUDIO_DIR` | `static/audio` | 真实音频落盘目录 |
+| `API_TOKEN` | 空 | 空 = 关闭鉴权；非空 = 需 `Authorization: Bearer` 或 `X-API-Key` 头 |
+
+### Docker 部署（推荐）
+
+```bash
+# 1. 准备配置
+cp .env.example .env   # 编辑 .env，务必设置强随机 API_TOKEN、DB_PATH
+
+# 2. 构建并启动
+docker compose up -d --build
+
+# 3. 验证
+curl http://localhost:8000/health
+```
+
+浏览器打开 `http://localhost:8000/` 即可使用。数据持久化在 `./data`（sqlite）与 `./static/audio`（音频）。
+
+### 反向代理 + HTTPS（可选）
+
+用 Caddy 自动申请证书，把 `Caddyfile` 里的域名换成你的真实域名后：
+
+```bash
+docker run -d -p 80:80 -p 443:443 -v $PWD/Caddyfile:/etc/caddy/Caddyfile caddy
+```
+
+### 本地开发（不用 Docker）
+
+```bash
+pip install -r requirements.txt
+DB_PATH=./data/agent.db TTS_BACKEND=mock uvicorn app.main:app --reload
+```
+
+> 本地开发可设 `API_TOKEN=`（空）关闭鉴权、`TTS_BACKEND=mock` 避免联网合成。

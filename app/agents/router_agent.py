@@ -1,7 +1,7 @@
 """整体调度 Agent：严格按规划书 §3.2 数据流 1~10 步编排，唯一实现数据流入口。"""
 from app.agents.memory_agent import MemoryAgent
 from app.agents.personality_agent import PersonalityAgent
-from app.config import VALID_MBTI
+from app.config import DB_PATH, VALID_MBTI
 from app.llm.factory import get_llm
 from app.modules.avatar import render_expression
 from app.modules.emotion import recognize_emotion
@@ -14,7 +14,7 @@ from app.schemas import ChatResponse, EmotionResult, Message
 
 # ===== 只读依赖（进程级单例，无业务可变状态，线程安全）=====
 _llm = get_llm()
-_store = MemoryStore()
+_store = MemoryStore(db_path=DB_PATH or None)
 _memory_agent = MemoryAgent(_store)
 _personality_agent = PersonalityAgent(_llm)
 _mbti_router = MBTIRouter()
@@ -35,10 +35,10 @@ def process_chat(session_id: str, text: str, initial_mbti: str | None = None,
         # 初次对话前可选初始人格：仅在尚未有任何对话时应用
         if initial_mbti is not None and session.turn_count == 0:
             _mbti_router.set_initial(session, initial_mbti)
-        return _process_locked(session, text)
+        return _process_locked(session, text, manager)
 
 
-def _process_locked(session: Session, text: str) -> ChatResponse:
+def _process_locked(session: Session, text: str, manager: SessionManager) -> ChatResponse:
     """锁内执行的数据流 2~10 步（调用方已持有 session.lock）。"""
 
     # 2. 安全风控前置检查：命中短路，不进入记忆与生成
@@ -72,6 +72,9 @@ def _process_locked(session: Session, text: str) -> ChatResponse:
     _store.extract_facts(session, text)
     _store.add_message(session, Message(role="assistant", content=reply))
     session.turn_count += 1
+
+    # 持久化会话元数据（turn_count / current_mbti / facts），纯内存模式为空操作
+    manager.save(session)
 
     # 5. MBTI 切片/投票（结算后触发，仅切片完成时推断）
     _mbti_router.on_turn_end(session, _llm)

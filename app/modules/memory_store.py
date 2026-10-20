@@ -3,6 +3,7 @@ import re
 
 from app.config import EPISODIC_TOP_K, SHORT_TERM_N
 from app.modules.session import Session
+from app.modules.storage import Storage
 from app.schemas import Message
 
 # 事实提取句式 → 字段名
@@ -18,6 +19,10 @@ _STOP = set("的了我你他她它是在和也就都吗呢吧啊哦很挺不没�
 
 
 class MemoryStore:
+    def __init__(self, db_path: str | None = None):
+        # db_path 为空 = 纯内存模式（历史行为，测试无参构造走这里）
+        self._storage = Storage(db_path) if db_path else None
+
     def add_message(self, session: Session, msg: Message) -> None:
         session.short_term.append(msg)
         # 短期记忆只保留最近 N 轮（每轮 user+assistant 两条）
@@ -27,6 +32,9 @@ class MemoryStore:
         session.episodic.append(msg.content)
         # 本切片累积消息（供 MBTI 推断，切片完成时由 router 清空）
         session.slice_buffer.append(msg)
+        # 持久化消息（全量，供重启恢复 short_term + episodic）
+        if self._storage is not None:
+            self._storage.append_message(session.session_id, msg.role, msg.content)
 
     def get_short_term(self, session: Session) -> list[Message]:
         return list(session.short_term)
@@ -52,6 +60,8 @@ class MemoryStore:
                 value = m.group(1).strip()
                 if value:
                     session.facts[field] = value
+        if self._storage is not None and session.facts:
+            self._storage.save_facts(session.session_id, session.facts)
 
     def get_facts(self, session: Session) -> dict[str, str]:
         return dict(session.facts)
